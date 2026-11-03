@@ -1,0 +1,313 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by
+Stephen Brawner (brawner@gmail.com) 
+     Commit Version: 1.6.0-4-g7f85cfe  Build Version: 1.6.7995.38578
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+<robot
+  name="dd_chassis_01_description">
+  <link
+    name="base_link">
+    <inertial>
+      <origin
+        xyz="0.00225643442430636 -3.84083228292811E-11 -0.00775518401120619"
+        rpy="0 0 0" />
+      <mass
+        value="0.526954793781656" />
+      <inertia
+        ixx="0.00500714985145418"
+        ixy="-2.6963929724647E-12"
+        ixz="6.5119903813237E-05"
+        iyy="0.00565174435626673"
+        iyz="-8.29351874306313E-13"
+        izz="0.0103982208977341" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://dd_chassis_01_description/meshes/base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://dd_chassis_01_description/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link
+    name="ydlidar_link">
+    <inertial>
+      <origin
+        xyz="0.00612113163111172 0.0116760548388481 -1.169115360589E-15"
+        rpy="0 0 0" />
+      <mass
+        value="0.0936792550428074" />
+      <inertia
+        ixx="2.72585018191627E-05"
+        ixy="7.13811165160373E-06"
+        ixz="-1.52764527744402E-18"
+        iyy="5.89984255634353E-05"
+        iyz="4.45008735705321E-19"
+        izz="4.76173774105997E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://dd_chassis_01_description/meshes/ydlidar_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://dd_chassis_01_description/meshes/ydlidar_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="ydlidar"
+    type="fixed">
+    <origin
+      xyz="0.158 0 -0.0296"
+      rpy="1.5708 0 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="ydlidar_link" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="wheel_l_link">
+    <inertial>
+      <origin
+        xyz="0.0146359365211945 -3.46944695195361E-18 -3.46944695195361E-18"
+        rpy="0 0 0" />
+      <mass
+        value="0.0564190770676561" />
+      <inertia
+        ixx="3.77293491814946E-05"
+        ixy="2.5125245074898E-21"
+        ixz="-2.88576369248561E-21"
+        iyy="2.23688728763878E-05"
+        iyz="1.6940658945086E-21"
+        izz="2.23688728763877E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://dd_chassis_01_description/meshes/wheel_l_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://dd_chassis_01_description/meshes/wheel_l_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="wheel_l"
+    type="continuous">
+    <origin
+      xyz="0 0.17 -0.034"
+      rpy="0 0 1.5708" />
+    <parent
+      link="base_link" />
+    <child
+      link="wheel_l_link" />
+    <axis
+      xyz="1 0 0" />
+  </joint>
+  <link
+    name="wheel_r_link">
+    <inertial>
+      <origin
+        xyz="0.0146359365211944 0 -3.46944695195361E-18"
+        rpy="0 0 0" />
+      <mass
+        value="0.0564190770676561" />
+      <inertia
+        ixx="3.77293491814946E-05"
+        ixy="-1.4276421590599E-21"
+        ixz="-6.94944358670354E-22"
+        iyy="2.23688728763877E-05"
+        iyz="1.6940658945086E-21"
+        izz="2.23688728763877E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://dd_chassis_01_description/meshes/wheel_r_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://dd_chassis_01_description/meshes/wheel_r_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="wheel_r"
+    type="continuous">
+    <origin
+      xyz="0 -0.17 -0.034"
+      rpy="0 0 -1.5708" />
+    <parent
+      link="base_link" />
+    <child
+      link="wheel_r_link" />
+    <axis
+      xyz="1 0 0" />
+  </joint>
+  <link
+    name="ball_wheel_f_link">
+    <inertial>
+      <origin
+        xyz="0 -6.93889390390723E-18 -1.50510220113668E-18"
+        rpy="0 0 0" />
+      <mass
+        value="0.00418879020478639" />
+      <inertia
+        ixx="1.67551608191456E-07"
+        ixy="0"
+        ixz="0"
+        iyy="1.67551608191456E-07"
+        iyz="0"
+        izz="1.67551608191456E-07" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://dd_chassis_01_description/meshes/ball_wheel_f_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://dd_chassis_01_description/meshes/ball_wheel_f_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="ball_wheel_f"
+    type="fixed">
+    <origin
+      xyz="0.184 0 -0.0565"
+      rpy="1.5708 0 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="ball_wheel_f_link" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="ball_wheel_b_link">
+    <inertial>
+      <origin
+        xyz="0 -6.93889390390723E-18 2.29621274840129E-19"
+        rpy="0 0 0" />
+      <mass
+        value="0.00418879020478639" />
+      <inertia
+        ixx="1.67551608191456E-07"
+        ixy="0"
+        ixz="0"
+        iyy="1.67551608191456E-07"
+        iyz="0"
+        izz="1.67551608191456E-07" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://dd_chassis_01_description/meshes/ball_wheel_b_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://dd_chassis_01_description/meshes/ball_wheel_b_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="ball_wheel_b"
+    type="fixed">
+    <origin
+      xyz="-0.18 0 -0.0565"
+      rpy="1.5708 0 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="ball_wheel_b_link" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+</robot>
