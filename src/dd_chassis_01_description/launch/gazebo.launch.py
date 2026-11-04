@@ -20,7 +20,10 @@ def generate_launch_description():
     return LaunchDescription([
         # Gazebo Fortress
         ExecuteProcess(
-            cmd=['ign', 'gazebo', '-r', '-v', '4','--render-engine','ogre', world],
+            cmd=['ign', 'gazebo', '-r', '-v', '4',
+                 '--render-engine','ogre',
+                 '--render-engine-gui','ogre',
+                 world],
             additional_env=env,
             output='screen'),
 

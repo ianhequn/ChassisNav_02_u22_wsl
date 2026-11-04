@@ -248,8 +248,7 @@ Stephen Brawner (brawner@gmail.com)
         xyz="0 0 0"
         rpy="0 0 0" />
       <geometry>
-        <mesh
-          filename="package://dd_chassis_01_description/meshes/ball_wheel_f_link.STL" />
+        <sphere radius="0.01" />
       </geometry>
     </collision>
   </link>
@@ -301,8 +300,7 @@ Stephen Brawner (brawner@gmail.com)
         xyz="0 0 0"
         rpy="0 0 0" />
       <geometry>
-        <mesh
-          filename="package://dd_chassis_01_description/meshes/ball_wheel_b_link.STL" />
+        <sphere radius="0.01" />
       </geometry>
     </collision>
   </link>
