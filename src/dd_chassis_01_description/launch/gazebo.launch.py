@@ -45,6 +45,14 @@ def generate_launch_description():
             additional_env=env,
             output='screen'),
 
+        # Gazebo <-> ROS 话题桥，配置外置到 config/bridge.yaml
+        Node(package='ros_gz_bridge',
+             executable='parameter_bridge',
+             parameters=[{'config_file':
+                          os.path.join(pkg, 'config', 'bridge.yaml')}],
+             additional_env=env,
+             output='screen'),
+
         # 发布 robot_description（给 RViz / Nav2 用）
         Node(package='robot_state_publisher',
              executable='robot_state_publisher',
