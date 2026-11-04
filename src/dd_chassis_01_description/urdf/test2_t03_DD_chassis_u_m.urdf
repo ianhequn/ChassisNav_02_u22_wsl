@@ -5,6 +5,15 @@ Stephen Brawner (brawner@gmail.com)
      For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
 <robot
   name="dd_chassis_01_description">
+
+  <link name="base_footprint" />
+
+  <joint name="base_footprint_joint" type="fixed">
+    <origin xyz="0 0 0.0665" rpy="0 0 0" />
+    <parent link="base_footprint" />
+    <child link="base_link" />
+  </joint>
+
   <link
     name="base_link">
     <inertial>
@@ -202,7 +211,7 @@ Stephen Brawner (brawner@gmail.com)
     <child
       link="wheel_r_link" />
     <axis
-      xyz="1 0 0" />
+      xyz="-1 0 0" />
   </joint>
   <link
     name="ball_wheel_f_link">

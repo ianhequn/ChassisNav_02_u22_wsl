@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(dd_chassis_description_01)
+project(dd_chassis_01_description)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
