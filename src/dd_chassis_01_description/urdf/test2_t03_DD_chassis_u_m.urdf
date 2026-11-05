@@ -73,7 +73,7 @@ Stephen Brawner (brawner@gmail.com)
     <visual>
       <origin
         xyz="0 0 0"
-        rpy="0 0 0" />
+        rpy="1.5708 0 0" />
       <geometry>
         <mesh
           filename="package://dd_chassis_01_description/meshes/ydlidar_link.STL" />
@@ -84,22 +84,13 @@ Stephen Brawner (brawner@gmail.com)
           rgba="1 1 1 1" />
       </material>
     </visual>
-    <collision>
-      <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
-      <geometry>
-        <mesh
-          filename="package://dd_chassis_01_description/meshes/ydlidar_link.STL" />
-      </geometry>
-    </collision>
   </link>
   <joint
     name="ydlidar"
     type="fixed">
     <origin
       xyz="0.158 0 -0.0296"
-      rpy="1.5708 0 0" />
+      rpy="0 0 0" />
     <parent
       link="base_link" />
     <child
@@ -327,9 +318,19 @@ Stephen Brawner (brawner@gmail.com)
       <wheel_radius>0.0325</wheel_radius>
       <max_linear_acceleration>0.5</max_linear_acceleration>
       <topic>cmd_vel</topic>
+    </plugin>
+
+    <!-- odom 取自世界真值位姿（Fortress 的 DiffDrive 只能轮速积分，打滑就飘），
+         并直接通过 tf_topic 发布 odom -> base_footprint。
+         关掉 DiffDrive 自己的 odom，避免与真值 odom 抢同一个话题。 -->
+    <plugin filename="ignition-gazebo-odometry-publisher-system"
+      name="ignition::gazebo::systems::OdometryPublisher">
+      <dimensions>2</dimensions>
+      <odom_frame>odom</odom_frame>
+      <robot_base_frame>base_footprint</robot_base_frame>
+      <odom_publish_frequency>50</odom_publish_frequency>
       <odom_topic>odom</odom_topic>
-      <frame_id>odom</frame_id>
-      <child_frame_id>base_footprint</child_frame_id>
+      <tf_topic>tf</tf_topic>
     </plugin>
   </gazebo>
   <gazebo reference="ball_wheel_f_link">
@@ -354,14 +355,14 @@ Stephen Brawner (brawner@gmail.com)
   </gazebo>
   <!-- 2D 激光雷达（YDLIDAR 级别，360度，10m） -->
   <gazebo reference="ydlidar_link">
-    <sensor name="lidar" type="gpu_ray">
+    <sensor name="gpu_lidar" type="gpu_lidar">
       <always_on>true</always_on>
       <visualize>true</visualize>
       <update_rate>10</update_rate>
       <pose>0 0 0 0 0 0</pose>
       <topic>scan</topic>
       <gz_frame_id>ydlidar_link</gz_frame_id>
-      <ray>
+      <lidar>
         <scan>
           <horizontal>
             <samples>360</samples>
@@ -369,10 +370,16 @@ Stephen Brawner (brawner@gmail.com)
             <min_angle>-3.14159</min_angle>
             <max_angle>3.14159</max_angle>
           </horizontal>
+          <vertical>
+            <samples>1</samples>
+            <resolution>0.01</resolution>
+            <min_angle>0</min_angle>
+            <max_angle>0</max_angle>
+          </vertical>
         </scan>
         <range>
           <min>0.10</min>
-          <max>10.0</max>
+          <max>20.0</max>
           <resolution>0.01</resolution>
         </range>
         <noise>
@@ -380,7 +387,13 @@ Stephen Brawner (brawner@gmail.com)
           <mean>0.0</mean>
           <stddev>0.01</stddev>
         </noise>
-      </ray>
+        <!-- 雷达离地仅 3.69cm，水平射线会切到地面，在地面矩形边界上形成
+             一圈跟随车体移动的“方形假墙”。world 里给地面 visual 设了
+             visibility_flags=2（bit1），这里把 bit1 从 mask 里清掉
+             （0xFFFFFFFF & ~2 = 4294967293），雷达就看不见地面，
+             而物理碰撞不受影响，小车不会掉下去。 -->
+        <visibility_mask>4294967293</visibility_mask>
+      </lidar>
     </sensor>
   </gazebo>
 

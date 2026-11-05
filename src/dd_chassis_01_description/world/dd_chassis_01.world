@@ -16,7 +16,7 @@
     <!-- 传感器渲染系统：激光雷达/相机都靠它驱动 -->
     <plugin filename="ignition-gazebo-sensors-system"
       name="gz::sim::systems::Sensors">
-      <render_engine>ogre</render_engine>
+      <render_engine>ogre2</render_engine>
     </plugin>
 
     <!-- 光照：内联，不依赖 Fuel -->
@@ -34,24 +34,31 @@
       <direction>-0.5 0.1 -0.9</direction>
     </light>
 
-    <!-- 地面：内联 plane，不依赖 Fuel -->
+    <!-- 地面：box 有厚度，物理碰撞正常，小车不会掉下去。
+         顶面在 z=0（中心下沉半个厚度 0.05）。 -->
     <model name="ground_plane">
       <static>true</static>
+      <pose>0 0 -0.05 0 0 0</pose>
       <link name="link">
         <collision name="collision">
           <geometry>
-            <plane>
-              <normal>0 0 1</normal>
-              <size>10 10</size>
-            </plane>
+            <box>
+              <size>10 10 0.1</size>
+            </box>
           </geometry>
         </collision>
         <visual name="visual">
+          <!-- 雷达离地只有 3.69cm，水平射线会切到地面，在地面矩形
+               边界上形成一圈跟随车体移动的“方形假墙”。
+               gpu_lidar 只与 visual 求交，因此在这里给地面单独一个
+               visibility flag（bit1=2），再在雷达的 visibility_mask 里
+               把这个位清掉，雷达就完全看不见地面，而物理碰撞
+               （collision）不受任何影响，小车依然不会掉下去。 -->
+          <visibility_flags>2</visibility_flags>
           <geometry>
-            <plane>
-              <normal>0 0 1</normal>
-              <size>10 10</size>
-            </plane>
+            <box>
+              <size>10 10 0.1</size>
+            </box>
           </geometry>
           <material>
             <ambient>0.8 0.8 0.8 1</ambient>
