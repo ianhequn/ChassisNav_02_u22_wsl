@@ -352,4 +352,36 @@ Stephen Brawner (brawner@gmail.com)
     <mu1>1.0</mu1>
     <mu2>1.0</mu2>
   </gazebo>
+  <!-- 2D 激光雷达（YDLIDAR 级别，360度，10m） -->
+  <gazebo reference="ydlidar_link">
+    <sensor name="lidar" type="gpu_ray">
+      <always_on>true</always_on>
+      <visualize>true</visualize>
+      <update_rate>10</update_rate>
+      <pose>0 0 0 0 0 0</pose>
+      <topic>scan</topic>
+      <gz_frame_id>ydlidar_link</gz_frame_id>
+      <ray>
+        <scan>
+          <horizontal>
+            <samples>360</samples>
+            <resolution>1</resolution>
+            <min_angle>-3.14159</min_angle>
+            <max_angle>3.14159</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+          <min>0.10</min>
+          <max>10.0</max>
+          <resolution>0.01</resolution>
+        </range>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.01</stddev>
+        </noise>
+      </ray>
+    </sensor>
+  </gazebo>
+
 </robot>
