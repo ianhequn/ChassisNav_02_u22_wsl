@@ -359,12 +359,24 @@ Stephen Brawner (brawner@gmail.com)
     <kd>150</kd>
   </gazebo>
   <gazebo reference="wheel_l_link">
+    <!-- 必须显式写 kp/kd。不写时 SDF 里是空的 <ode/>，即默认 kp=1e12，
+         比球轮的 1e4 硬 1 亿倍。两类轮子刚度差这么多会让求解器在接触
+         方向上来回跳变，实测表现为"左转时两轮同向、车身不转"。
+         这里与球轮取同一个量级。 -->
     <mu1>1.0</mu1>
     <mu2>1.0</mu2>
+    <kp>10000</kp>
+    <kd>150</kd>
   </gazebo>
   <gazebo reference="wheel_r_link">
+    <!-- 必须显式写 kp/kd。不写时 SDF 里是空的 <ode/>，即默认 kp=1e12，
+         比球轮的 1e4 硬 1 亿倍。两类轮子刚度差这么多会让求解器在接触
+         方向上来回跳变，实测表现为"左转时两轮同向、车身不转"。
+         这里与球轮取同一个量级。 -->
     <mu1>1.0</mu1>
     <mu2>1.0</mu2>
+    <kp>10000</kp>
+    <kd>150</kd>
   </gazebo>
   <!-- ================= 2D 激光雷达 =================
        要点（Fortress 6.18 + ogre2 实测）：
