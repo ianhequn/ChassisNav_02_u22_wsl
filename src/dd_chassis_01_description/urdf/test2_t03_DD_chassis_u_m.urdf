@@ -353,13 +353,27 @@ Stephen Brawner (brawner@gmail.com)
     <mu1>1.0</mu1>
     <mu2>1.0</mu2>
   </gazebo>
-  <!-- 2D 激光雷达（YDLIDAR 级别，360度，10m） -->
+  <!-- ================= 2D 激光雷达 =================
+       要点（Fortress 6.18 + ogre2 实测）：
+       1. type 用 gpu_lidar / 块名用 <lidar>：sdformat 明确写 gpu_ray/<ray>
+          与 gpu_lidar/<lidar> 等价，但前者将被废弃。
+       2. 不需要 <pose>，默认与 ydlidar_link 重合。
+       3. 不需要 <vertical>：省略时 gz 使用默认单层（samples=1, min=max=0），
+          就是水平扫描。
+       4. visibility_mask 把地面 visual 排除出射线求交。
+          原因：雷达离地仅 3.69cm，gpu_lidar 靠渲染深度图求交，掠射角下
+          约 0.4° 的等效误差会被放大成 d = 0.0369/sin(0.4°) ≈ 5.3m 的
+          虚假命中，表现为一圈约 10m×10m、跟随车体移动的“方形假墙”。
+          实测把地面 visual 降低 2cm，假墙点数就从 0 跳到 224，可确认来源。
+          world 里地面 visual 打了 visibility_flags=2（bit1），这里把 bit1
+          清掉（0xFFFFFFFF & ~2 = 4294967293）；其它物体默认 flags 全 1，
+          照常可见。物理 collision 不受影响，小车不会掉下去。
+       5. ydlidar_link 故意不写 <collision>：避免雷达与车体/地面产生物理接触。 -->
   <gazebo reference="ydlidar_link">
-    <sensor name="gpu_lidar" type="gpu_lidar">
+    <sensor name="lidar" type="gpu_lidar">
       <always_on>true</always_on>
       <visualize>true</visualize>
       <update_rate>10</update_rate>
-      <pose>0 0 0 0 0 0</pose>
       <topic>scan</topic>
       <gz_frame_id>ydlidar_link</gz_frame_id>
       <lidar>
@@ -370,12 +384,6 @@ Stephen Brawner (brawner@gmail.com)
             <min_angle>-3.14159</min_angle>
             <max_angle>3.14159</max_angle>
           </horizontal>
-          <vertical>
-            <samples>1</samples>
-            <resolution>0.01</resolution>
-            <min_angle>0</min_angle>
-            <max_angle>0</max_angle>
-          </vertical>
         </scan>
         <range>
           <min>0.10</min>
@@ -387,11 +395,6 @@ Stephen Brawner (brawner@gmail.com)
           <mean>0.0</mean>
           <stddev>0.01</stddev>
         </noise>
-        <!-- 雷达离地仅 3.69cm，水平射线会切到地面，在地面矩形边界上形成
-             一圈跟随车体移动的“方形假墙”。world 里给地面 visual 设了
-             visibility_flags=2（bit1），这里把 bit1 从 mask 里清掉
-             （0xFFFFFFFF & ~2 = 4294967293），雷达就看不见地面，
-             而物理碰撞不受影响，小车不会掉下去。 -->
         <visibility_mask>4294967293</visibility_mask>
       </lidar>
     </sensor>
