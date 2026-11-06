@@ -19,6 +19,12 @@
       <render_engine>ogre2</render_engine>
     </plugin>
 
+    <!-- IMU 系统：必须加载才会驱动 imu 类型的 sensor 并发布话题。
+         Sensors 系统只管渲染型传感器（相机/雷达），IMU 是纯物理量，
+         由这个独立系统负责。 -->
+    <plugin filename="ignition-gazebo-imu-system"
+      name="gz::sim::systems::Imu" />
+
     <!-- 光照：内联，不依赖 Fuel -->
     <light type="directional" name="sun">
       <cast_shadows>false</cast_shadows>

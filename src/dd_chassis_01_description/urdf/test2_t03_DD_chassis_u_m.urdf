@@ -326,48 +326,47 @@ Stephen Brawner (brawner@gmail.com)
   </joint>
 
   <gazebo>
-    <plugin filename="ignition-gazebo-diff-drive-system"
-      name="ignition::gazebo::systems::DiffDrive">
-      <left_joint>wheel_l</left_joint>
-      <right_joint>wheel_r</right_joint>
-      <wheel_separation>0.34</wheel_separation>
-      <wheel_radius>0.0325</wheel_radius>
-      <max_linear_acceleration>0.5</max_linear_acceleration>
-      <topic>cmd_vel</topic>
-    </plugin>
-
-    <!-- odom 取自世界真值位姿（Fortress 的 DiffDrive 只能轮速积分，打滑就飘），
-         并直接通过 tf_topic 发布 odom -> base_footprint。
-         关掉 DiffDrive 自己的 odom，避免与真值 odom 抢同一个话题。 -->
-    <plugin filename="ignition-gazebo-odometry-publisher-system"
-      name="ignition::gazebo::systems::OdometryPublisher">
-      <dimensions>2</dimensions>
-      <odom_frame>odom</odom_frame>
-      <robot_base_frame>base_footprint</robot_base_frame>
-      <odom_publish_frequency>50</odom_publish_frequency>
-      <odom_topic>odom</odom_topic>
-      <tf_topic>tf</tf_topic>
+    <plugin filename="ign_ros2_control-system"
+      name="ign_ros2_control::IgnitionROS2ControlPlugin">
+      <!-- ⚠️ 你的 launch 是直接 open(urdf).read() 后交给 ros_gz_sim create，
+           所以 $(find ...) 不会被展开（那是 xacro 的语法）。
+           这里必须写 install 下的绝对路径，或者把 URDF 改成 xacro。 -->
+      <parameters>
+        /home/u22/MyWork/robot/ros2/ChassisNav_02_u22_wsl/install/dd_chassis_01_description/share/dd_chassis_01_description/config/controllers.yaml</parameters>
     </plugin>
   </gazebo>
+
   <gazebo reference="ball_wheel_f_link">
     <mu1>0.01</mu1>
     <mu2>0.01</mu2>
-    <kp>1000000</kp>
-    <kd>100</kd>
+    <kp>10000</kp>
+    <kd>150</kd>
   </gazebo>
   <gazebo reference="ball_wheel_b_link">
     <mu1>0.01</mu1>
     <mu2>0.01</mu2>
-    <kp>1000000</kp>
-    <kd>100</kd>
+    <kp>10000</kp>
+    <kd>150</kd>
   </gazebo>
   <gazebo reference="wheel_l_link">
+    <!-- 必须显式写 kp/kd。不写时 SDF 里是空的 <ode/>，即默认 kp=1e12，
+         比球轮的 1e4 硬 1 亿倍。两类轮子刚度差这么多会让求解器在接触
+         方向上来回跳变，实测表现为"左转时两轮同向、车身不转"。
+         这里与球轮取同一个量级。 -->
     <mu1>1.0</mu1>
     <mu2>1.0</mu2>
+    <kp>10000</kp>
+    <kd>150</kd>
   </gazebo>
   <gazebo reference="wheel_r_link">
+    <!-- 必须显式写 kp/kd。不写时 SDF 里是空的 <ode/>，即默认 kp=1e12，
+         比球轮的 1e4 硬 1 亿倍。两类轮子刚度差这么多会让求解器在接触
+         方向上来回跳变，实测表现为"左转时两轮同向、车身不转"。
+         这里与球轮取同一个量级。 -->
     <mu1>1.0</mu1>
     <mu2>1.0</mu2>
+    <kp>10000</kp>
+    <kd>150</kd>
   </gazebo>
   <!-- ================= 2D 激光雷达 =================
        要点（Fortress 6.18 + ogre2 实测）：
@@ -419,5 +418,73 @@ Stephen Brawner (brawner@gmail.com)
       </lidar>
     </sensor>
   </gazebo>
+  <!-- IMU：装在车体中心，用 base_link 自身即可 -->
+  <gazebo reference="base_link">
+    <sensor name="imu_sensor" type="imu">
+      <always_on>true</always_on>
+      <update_rate>100</update_rate>
+      <topic>imu</topic>
+      <gz_frame_id>base_link</gz_frame_id>
+      <imu>
+        <angular_velocity>
+          <x>
+            <noise type="gaussian">
+              <mean>0</mean>
+              <stddev>0.0002</stddev>
+            </noise>
+          </x>
+          <y>
+            <noise type="gaussian">
+              <mean>0</mean>
+              <stddev>0.0002</stddev>
+            </noise>
+          </y>
+          <z>
+            <noise type="gaussian">
+              <mean>0</mean>
+              <stddev>0.0002</stddev>
+            </noise>
+          </z>
+        </angular_velocity>
+        <linear_acceleration>
+          <x>
+            <noise type="gaussian">
+              <mean>0</mean>
+              <stddev>0.0017</stddev>
+            </noise>
+          </x>
+          <y>
+            <noise type="gaussian">
+              <mean>0</mean>
+              <stddev>0.0017</stddev>
+            </noise>
+          </y>
+          <z>
+            <noise type="gaussian">
+              <mean>0</mean>
+              <stddev>0.0017</stddev>
+            </noise>
+          </z>
+        </linear_acceleration>
+      </imu>
+    </sensor>
+  </gazebo>
+  <!-- ============ ros2_control：把两个驱动轮交给控制器管理 ============ -->
+  <ros2_control name="IgnitionSystem" type="system">
+    <hardware>
+      <plugin>ign_ros2_control/IgnitionSystem</plugin>
+    </hardware>
 
+    <joint name="wheel_l">
+      <command_interface name="velocity" />
+      <state_interface name="position" />
+      <state_interface name="velocity" />
+    </joint>
+
+    <joint name="wheel_r">
+      <command_interface name="velocity" />
+      <state_interface name="position" />
+      <state_interface name="velocity" />
+    </joint>
+  </ros2_control>
 </robot>
