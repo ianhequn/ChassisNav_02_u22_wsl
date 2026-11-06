@@ -73,7 +73,7 @@ Stephen Brawner (brawner@gmail.com)
     <visual>
       <origin
         xyz="0 0 0"
-        rpy="1.5708 0 0" />
+        rpy="0 0 0" />
       <geometry>
         <mesh
           filename="package://dd_chassis_01_description/meshes/ydlidar_link.STL" />
@@ -90,13 +90,29 @@ Stephen Brawner (brawner@gmail.com)
     type="fixed">
     <origin
       xyz="0.158 0 -0.0296"
-      rpy="0 0 0" />
+      rpy="1.5708 0 0" />
     <parent
       link="base_link" />
     <child
       link="ydlidar_link" />
     <axis
       xyz="0 0 0" />
+  </joint>
+
+  <!-- 扫描面 link：真实 YDLIDAR 的测距基准面在雷达基座上方 18mm，
+       而不是 ydlidar_link 原点（STL 双锥体的正中心）。
+       单独建一个无质量 link，让 sensor 挂在这里，好处是：
+       - TF 树里 lidar_scan_link 就代表真实扫描面，slam 建图精度正确
+       - 不动 ydlidar_link 的位置，RViz 里的模型不会悬空
+       fixed 关节会在 URDF->SDF 时被融合，不引入额外自由度。 -->
+  <link name="lidar_scan_link" />
+
+  <joint name="lidar_scan_joint" type="fixed">
+    <!-- ydlidar joint 有 rpy="1.5708 0 0"（绕X+90°），所以 ydlidar_link 的
+         +Y 才对应 base_link 的 +Z（向上）。要抬高扫描面 18mm 必须写 y。 -->
+    <origin xyz="0 0.018 0" rpy="-1.5708 0 0" />
+    <parent link="ydlidar_link" />
+    <child link="lidar_scan_link" />
   </joint>
   <link
     name="wheel_l_link">
@@ -368,14 +384,18 @@ Stephen Brawner (brawner@gmail.com)
           world 里地面 visual 打了 visibility_flags=2（bit1），这里把 bit1
           清掉（0xFFFFFFFF & ~2 = 4294967293）；其它物体默认 flags 全 1，
           照常可见。物理 collision 不受影响，小车不会掉下去。
-       5. ydlidar_link 故意不写 <collision>：避免雷达与车体/地面产生物理接触。 -->
-  <gazebo reference="ydlidar_link">
+       5. ydlidar_link 故意不写 <collision>：避免雷达与车体/地面产生物理接触。
+       6. sensor 挂在 lidar_scan_link 上，代表真实 YDLIDAR 的测距基准面。
+          ydlidar joint 带 rpy="1.5708 0 0"，ydlidar_link 的 +Y 才朝上，
+          所以抬高量写在 lidar_scan_joint 的 y 上（0.018）。
+          离地高度 = 0.0665(base_link) - 0.0296(ydlidar joint) + 0.018 = 0.0549m。 -->
+  <gazebo reference="lidar_scan_link">
     <sensor name="lidar" type="gpu_lidar">
       <always_on>true</always_on>
       <visualize>true</visualize>
       <update_rate>10</update_rate>
       <topic>scan</topic>
-      <gz_frame_id>ydlidar_link</gz_frame_id>
+      <gz_frame_id>lidar_scan_link</gz_frame_id>
       <lidar>
         <scan>
           <horizontal>
