@@ -340,10 +340,20 @@ velocity_smoother:
     smoothing_frequency: 20.0
     scale_velocities: False
     feedback: "OPEN_LOOP"
-    max_velocity: [0.26, 0.0, 1.0]
-    min_velocity: [-0.26, 0.0, -1.0]
-    max_accel: [2.5, 0.0, 3.2]
-    max_decel: [-2.5, 0.0, -3.2]
+
+    # 【线速度x, 线速度y, 角速度z】
+    # 原值是 nav2 默认的 TurtleBot 值(0.26 / 1.0)，比这个底盘的能力
+    # (diff_drive_controller 里 0.5 / 1.5) 小一半，会把导航和遥控都拖慢。
+    # 这里与 controllers.yaml 的限幅对齐。
+    max_velocity: [0.5, 0.0, 1.5]
+    min_velocity: [-0.5, 0.0, -1.5]
+
+    # 加速度同样与底盘对齐（0.5 m/s^2、1.5 rad/s^2）。
+    # 平滑器先限一道，diff_drive_controller 再限一道，两道保持一致
+    # 才不会出现“平滑器允许但控制器拒绝”的隐形降速。
+    max_accel: [0.5, 0.0, 1.5]
+    max_decel: [-0.5, 0.0, -1.5]
+
     odom_topic: "odom"
     odom_duration: 0.1
     deadband_velocity: [0.0, 0.0, 0.0]

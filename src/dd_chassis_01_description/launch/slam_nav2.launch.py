@@ -47,11 +47,20 @@ def generate_launch_description():
             output='screen',
         ),
 
-        # /cmd_vel -> /diff_drive_controller/cmd_vel_unstamped
+        # /cmd_vel_smoothed -> /diff_drive_controller/cmd_vel_unstamped
+        #
+        # nav2 标准链路：controller_server -> /cmd_vel
+        #   -> velocity_smoother -> /cmd_vel_smoothed -> 底盘。
+        # relay 若直接接 /cmd_vel，就把平滑器整个旁路了：
+        #   - 加减速限幅失效，底盘收到阶跃指令
+        #   - /cmd_vel_smoothed 无人订阅，velocity_smoother 白跑
+        # 接 smoothed 后遥控和导航走同一道平滑，行为一致。
+        # 代价：只跑 gazebo.launch.py 不开 nav2 时没有 velocity_smoother，
+        #       遥控会失效。
         Node(
             package='topic_tools', executable='relay',
             name='cmd_vel_relay',
-            arguments=['/cmd_vel',
+            arguments=['/cmd_vel_smoothed',
                        '/diff_drive_controller/cmd_vel_unstamped'],
             output='screen',
         ),
