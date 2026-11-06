@@ -1,5 +1,5 @@
 import os
-from ament_index_python.packages import get_package_share_directory
+from ament_index_python.packages import get_package_prefix, get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import ExecuteProcess
 from launch_ros.actions import Node
@@ -16,6 +16,17 @@ def generate_launch_description():
     env['IGN_GAZEBO_RESOURCE_PATH'] = (
         os.path.dirname(pkg) + ':'
         + env.get('IGN_GAZEBO_RESOURCE_PATH', ''))
+
+    # ign_ros2_control 的 .so 在 /opt/ros/humble/lib 下，但 ign-gazebo 的
+    # SystemLoader 不搜索 LD_LIBRARY_PATH，只搜索
+    # IGN_GAZEBO_SYSTEM_PLUGIN_PATH。不设这个变量就会报：
+    #   [Err] [SystemLoader.cc:94] Failed to load system plugin
+    #         [ign_ros2_control-system] : couldn't find shared library.
+    # 后果是 controller_manager 根本不会被创建，所有 controller
+    # spawner 永远空等，表现为"遥控完全没反应"。
+    env['IGN_GAZEBO_SYSTEM_PLUGIN_PATH'] = (
+        os.path.join(get_package_prefix('ign_ros2_control'), 'lib') + ':'
+        + env.get('IGN_GAZEBO_SYSTEM_PLUGIN_PATH', ''))
     # WSLg 下 ogre2 渲染所需的三个变量（实测有效）
     env['MESA_D3D12_DEFAULT_ADAPTER_NAME'] = 'NVIDIA'   # 选 RTX 4060 独显
     env['MESA_GL_VERSION_OVERRIDE'] = '4.5'             # 绕过 Ogre2 copyTo 分支缺陷

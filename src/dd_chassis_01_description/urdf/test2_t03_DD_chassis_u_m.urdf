@@ -326,53 +326,16 @@ Stephen Brawner (brawner@gmail.com)
   </joint>
 
   <gazebo>
-    <plugin filename="ignition-gazebo-diff-drive-system"
-      name="ignition::gazebo::systems::DiffDrive">
-      <left_joint>wheel_l</left_joint>
-      <right_joint>wheel_r</right_joint>
-      <wheel_separation>0.34</wheel_separation>
-      <wheel_radius>0.0325</wheel_radius>
-
-      <!-- ===== 速度/加速度限幅 =====
-           Fortress 的 DiffDrive 把每一项分别传给 ignition::math::SpeedLimiter，
-           而 limiter 的 min / max 是两个完全独立的参数，默认值：
-               MinVelocity/MaxVelocity         = -inf / +inf
-               MinAcceleration/MaxAcceleration = -inf / +inf
-           DiffDrive 解析 SDF 时只把你写的那一项 set 进去，**不会**自动把
-           min 补成 -max。所以只写
-
-               <max_angular_acceleration>0.1</max_angular_acceleration>
-
-           实际得到的是 MinAcceleration=-inf、MaxAcceleration=+0.1，
-           即"正方向被限死、负方向完全不限"。实测（2000 步 @1ms）：
-               目标 +1.5 -> 实际 +0.10   （被限制）
-               目标 -1.5 -> 实际 -1.50   （完全自由）
-           这就是原地转向时左右两侧响应不一致、一个方向很顺另一个方向
-           卡死的原因——不是轮子打滑，也不是 kp/kd。
-
-           因此下面每一项都成对写 min/max，且严格对称。 -->
-
-      <!-- 线速度：0.5 m/s 约等于 2 圈轮/s，够用且不打滑 -->
-      <max_linear_velocity>0.5</max_linear_velocity>
-      <min_linear_velocity>-0.5</min_linear_velocity>
-
-      <!-- 线加速度：1 秒内到满速 -->
-      <max_linear_acceleration>0.5</max_linear_acceleration>
-      <min_linear_acceleration>-0.5</min_linear_acceleration>
-
-      <!-- 角速度：1.5 rad/s (86 deg/s) -->
-      <max_angular_velocity>1.5</max_angular_velocity>
-      <min_angular_velocity>-1.5</min_angular_velocity>
-
-      <!-- 角加速度：与线加速度同量级，1.5/0.5=3 秒到满角速度。
-           原配置写 0.1，即便符号对称也要 15 秒才能到满速，太迟钝。 -->
-      <max_angular_acceleration>0.5</max_angular_acceleration>
-      <min_angular_acceleration>-0.5</min_angular_acceleration>
-
-      <topic>cmd_vel</topic>
+    <plugin filename="ign_ros2_control-system"
+      name="ign_ros2_control::IgnitionROS2ControlPlugin">
+      <!-- ⚠️ 你的 launch 是直接 open(urdf).read() 后交给 ros_gz_sim create，
+           所以 $(find ...) 不会被展开（那是 xacro 的语法）。
+           这里必须写 install 下的绝对路径，或者把 URDF 改成 xacro。 -->
+      <parameters>
+        /home/u22/MyWork/robot/ros2/ChassisNav_02_u22_wsl/install/dd_chassis_01_description/share/dd_chassis_01_description/config/controllers.yaml</parameters>
     </plugin>
-
   </gazebo>
+
   <gazebo reference="ball_wheel_f_link">
     <mu1>0.01</mu1>
     <mu2>0.01</mu2>
@@ -506,5 +469,22 @@ Stephen Brawner (brawner@gmail.com)
       </imu>
     </sensor>
   </gazebo>
+  <!-- ============ ros2_control：把两个驱动轮交给控制器管理 ============ -->
+  <ros2_control name="IgnitionSystem" type="system">
+    <hardware>
+      <plugin>ign_ros2_control/IgnitionSystem</plugin>
+    </hardware>
 
+    <joint name="wheel_l">
+      <command_interface name="velocity" />
+      <state_interface name="position" />
+      <state_interface name="velocity" />
+    </joint>
+
+    <joint name="wheel_r">
+      <command_interface name="velocity" />
+      <state_interface name="position" />
+      <state_interface name="velocity" />
+    </joint>
+  </ros2_control>
 </robot>

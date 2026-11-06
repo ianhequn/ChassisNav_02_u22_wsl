@@ -32,6 +32,30 @@ def generate_launch_description():
             'slam_params_file',
             default_value=os.path.join(pkg, 'config', 'slam_lifelong.yaml')),
 
+        
+        # joint_state_broadcaster：先把 /joint_states 发出来
+        Node(
+            package='controller_manager', executable='spawner',
+            arguments=['joint_state_broadcaster'],
+            output='screen',
+        ),
+
+        # diff_drive_controller：订阅 cmd_vel_unstamped，发布 odom
+        Node(
+            package='controller_manager', executable='spawner',
+            arguments=['diff_drive_controller'],
+            output='screen',
+        ),
+
+        # /cmd_vel -> /diff_drive_controller/cmd_vel_unstamped
+        Node(
+            package='topic_tools', executable='relay',
+            name='cmd_vel_relay',
+            arguments=['/cmd_vel',
+                       '/diff_drive_controller/cmd_vel_unstamped'],
+            output='screen',
+        ),
+
         # EKF：轮速 + IMU -> odom -> base_footprint
         Node(
             package='robot_localization',

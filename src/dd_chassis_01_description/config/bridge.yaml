@@ -24,19 +24,5 @@
   gz_type_name: "gz.msgs.IMU"
   direction: GZ_TO_ROS
 
-# 注意：/odom 和 /tf 这两条桥接已删除，原因有二：
-#   1. gz 实际发布的是 /model/dd_chassis/odometry 和 /model/dd_chassis/tf，
-#      写裸名 "odom" / "tf" 桥的是不存在的话题，属于无效配置。
-#   2. 即使桥成功，也会和 ekf_filter_node（发 /odom 与 odom->base_footprint）
-#      抢同一个话题，出现两个发布者互相打架。EKF 才是 /odom 的唯一来源。
-#
-# DiffDrive 的里程计默认发到 /model/<模型名>/odometry，而不是裸话题名。
-# 之前写成 gz_topic_name: "wheel_odom"，桥接了一个不存在的 gz 话题，
-# 导致 /wheel_odom 一直没有数据、EKF 线速度输入恒为 0，
-# 表现就是 RViz 里机器人角度对但 xy 永远停在原点。
-- ros_topic_name: "wheel_odom"
-  gz_topic_name: "/model/dd_chassis/odometry"
-  ros_type_name: "nav_msgs/msg/Odometry"
-  gz_type_name: "gz.msgs.Odometry"
-  direction: GZ_TO_ROS
+
   
