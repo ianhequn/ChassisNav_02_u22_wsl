@@ -420,6 +420,12 @@ Stephen Brawner (brawner@gmail.com)
   </gazebo>
   <!-- IMU：装在车体中心，用 base_link 自身即可 -->
   <gazebo reference="base_link">
+    <!-- 车体点不在 Gazebo 侧屏蔽。
+         虽然可以用 <visual><visibility_flags> 配合雷达的 visibility_mask
+         在仿真里精确去掉车体（求交的是 visual，确实可行），但真机没有
+         这套机制，必须在 ROS 侧用 laser_filters 过滤。
+         为了仿真和真机走同一条数据链路（同样的过滤节点、同样的参数），
+         这里保持车体 visual 默认可见。 -->
     <sensor name="imu_sensor" type="imu">
       <always_on>true</always_on>
       <update_rate>100</update_rate>

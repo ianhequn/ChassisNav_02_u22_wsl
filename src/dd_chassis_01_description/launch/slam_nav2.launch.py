@@ -65,6 +65,20 @@ def generate_launch_description():
             output='screen',
         ),
 
+        # 雷达过滤：屏蔽车体自身
+        # 读 /scan_raw（Gazebo 桥进来的原始数据），写 /scan（slam 和 costmap 用）
+        Node(
+            package='laser_filters',
+            executable='scan_to_scan_filter_chain',
+            name='scan_filter',
+            output='screen',
+            parameters=[
+                os.path.join(pkg, 'config', 'scan_filter.yaml'),
+                {'use_sim_time': use_sim_time},
+            ],
+            remappings=[('scan', 'scan_raw'), ('scan_filtered', 'scan')],
+        ),
+
         # EKF：轮速 + IMU -> odom -> base_footprint
         Node(
             package='robot_localization',
