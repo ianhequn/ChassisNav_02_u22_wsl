@@ -32,6 +32,19 @@ def generate_launch_description():
             'slam_params_file',
             default_value=os.path.join(pkg, 'config', 'slam_lifelong.yaml')),
 
+        # EKF：轮速 + IMU -> odom -> base_footprint
+        Node(
+            package='robot_localization',
+            executable='ekf_node',
+            name='ekf_filter_node',
+            output='screen',
+            parameters=[
+                os.path.join(pkg, 'config', 'ekf.yaml'),
+                {'use_sim_time': use_sim_time},
+            ],
+            remappings=[('odometry/filtered', 'odom')],
+        ),
+
         # slam_toolbox 终身建图
         Node(
             package='slam_toolbox',

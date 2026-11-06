@@ -1,0 +1,33 @@
+ekf_filter_node:
+  ros__parameters:
+    use_sim_time: true
+    frequency: 30.0
+    sensor_timeout: 0.1
+
+    # 两个输入源，都是"差分"型
+    odom0: /wheel_odom
+    odom0_config: [false, false, false,
+                   false, false, false,
+                   true,  true,  false,   # vx, vy(world), --  取轮速线速度
+                   false, false, true,    # --, --, vyaw       取轮速角速度
+                   false, false, false]
+
+    imu0: /imu
+    imu0_config: [false, false, false,
+                  false, false, true,     # 只取 yaw 姿态
+                  false, false, false,
+                  false, false, true,     # 只取 yaw 角速度
+                  false, false, false]
+                  
+    imu0_differential: false
+    imu0_remove_gravitational_acceleration: true
+
+    # 差速车：只有 x 平移 + yaw 旋转
+    two_d_mode: true
+
+    # 输出
+    publish_tf: true
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_footprint
+    world_frame: odom
