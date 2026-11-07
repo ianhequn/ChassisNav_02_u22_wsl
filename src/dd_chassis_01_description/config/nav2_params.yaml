@@ -141,94 +141,72 @@ controller_server:
       # 差 25cm 就报"到了"，实际离目标还很远。
       xy_goal_tolerance: 0.10
       yaw_goal_tolerance: 0.15
-    # DWB parameters
+    # ==================================================================
+    # 【控制器选型】用 Regulated Pure Pursuit，不用 DWB
+    #
+    # 为什么放弃 DWB：
+    #   DWB 是"采样速度对 + 一组 critic 加权求和"的局部轨迹规划器，
+    #   路径跟踪只是其中的软约束。在 180° 回折弯上：
+    #     - 路径折线拐点处，PathAlign 的参考点方向会跳变
+    #     - forward_point_distance(0.1m) 在回折处可能跨到另一段路径
+    #     - PathDist/PathAlign 在直道上 raw score 恒为 0，
+    #       对"小幅提前转向"完全不敏感，只剩 Goal* 在拉
+    #   → 表现就是"提前转弯 vs 直行"反复横跳，调权重只是换一种抖法。
+    #
+    # RPP 是几何跟踪器：找 lookahead 点 → 算圆弧曲率 → 直接输出角速度。
+    # 没有权重可调，天然平滑；配合 use_rotate_to_heading，
+    # 航向差超过阈值时先原地转到路径方向再走，不会提前拐。
+    #
+    # 若需回退 DWB：git checkout config/nav2_params.yaml
+    # ==================================================================
     FollowPath:
-      plugin: "dwb_core::DWBLocalPlanner"
-      debug_trajectory_details: True
-      # 【不在正常导航里允许倒车】
-      # 实测发现：允许 min_vel_x=-0.1 后，本该转弯的地方 DWB 会选倒车过去，
-      # 因为倒车能让轨迹末端更「朝向目标」，比转弯省事。
-      # 倒车应该交给行为树的 recovery（backup）——只在卡住/异常时触发，
-      # 而不是每 50ms 都在候选集里。
-      min_vel_x: 0.0
-      min_vel_y: 0.0
-      # 底盘实际能到 0.5，但 S 弯里 0.5 来不及转。
-      # 0.35 × sim_time 1.2 = 0.42m 前瞻，短于实测的 0.5m 墙距。
-      max_vel_x: 0.35
-      max_vel_y: 0.0
-      max_vel_theta: 1.5
-      min_speed_xy: 0.0
-      max_speed_xy: 0.35
-      min_speed_theta: 0.0
-      # Add high threshold velocity for turtlebot 3 issue.
-      # https://github.com/ROBOTIS-GIT/turtlebot3_simulations/issues/75
-      acc_lim_x: 1.0
-      acc_lim_y: 0.0
-      acc_lim_theta: 1.5
-      decel_lim_x: -1.0
-      decel_lim_y: 0.0
-      decel_lim_theta: -1.5
-      # 采样数从 20 提到 25，速度离散更细，走起来更顺
-      vx_samples: 25
-      vy_samples: 5
-      vtheta_samples: 25
-      # 1.7s 的预测时域太长：1.7s 内的代价全算进来，
-      # 窄处容易提前判死而减速/绕路。1.2s 更果断。
-      sim_time: 1.2
-      linear_granularity: 0.05
-      angular_granularity: 0.025
+      plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
+
+      # ------------------------------------------------------------------
+      # 以下是 nav2 官方 RPP 的默认参数，只按本底盘能力改了两类：
+      #   1) 速度/加速度上限（官方 TurtleBot 值 0.5 / 3.2，本底盘 0.5 / 1.5）
+      #   2) desired_linear_vel 取 0.4，留出 S 弯余量
+      # 其余一律保持官方默认，不做"自创"调整。
+      #
+      # 已删除两个 Humble 版本不存在的参数：
+      #   max_linear_accel / max_linear_decel（官方 .so 里没有声明）
+      # ------------------------------------------------------------------
+
+      # 速度（官方 desired_linear_vel 默认 0.5；本车 0.5，S 弯留余量取 0.4）
+      desired_linear_vel: 0.4
+
+      # 前瞻（官方默认：0.6 / 0.3 / 0.9 / 1.5）
+      lookahead_dist: 0.6
+      min_lookahead_dist: 0.3
+      max_lookahead_dist: 0.9
+      lookahead_time: 1.5
+      # 官方默认 false：固定 0.6m 前瞻。
+      # 开启后高速时前瞻涨到 0.9m，会"看见更远的弯"，与"别提前转"的目标相反。
+      use_velocity_scaled_lookahead_dist: false
+
+      # 原地转向（官方默认：true / 45° / 1.8 rad/s）
+      # 角速度按底盘上限 1.5 取 1.5
+      use_rotate_to_heading: true
+      rotate_to_heading_min_angle: 0.785
+      rotate_to_heading_angular_vel: 1.5
+
+      # 弯道降速（官方默认，全部保持）
+      use_regulated_linear_velocity_scaling: true
+      regulated_linear_scaling_min_radius: 0.9
+      regulated_linear_scaling_min_speed: 0.25
+      use_cost_regulated_linear_velocity_scaling: false
+
+      # 碰撞检测（官方默认）
+      use_collision_detection: true
+      max_allowed_time_to_collision_up_to_carrot: 1.0
+
+      # 接近目标（官方默认 0.05 / 0.6）
+      min_approach_linear_velocity: 0.05
+      approach_velocity_scaling_dist: 0.6
+
+      # 角加速度：官方 3.2，本底盘 1.5
+      max_angular_accel: 1.5
       transform_tolerance: 0.2
-      xy_goal_tolerance: 0.25
-      # 0.25 m/s 才认为"停住"太粗糙，会拖慢到点判定
-      trans_stopped_velocity: 0.1
-      # 开 True 时一旦某条轨迹超过当前最优就跳过剩余 critic，
-      # 分数不完整。本来分数就接近平局的情况下更容易选错。
-      short_circuit_trajectory_evaluation: False
-      # 只截取前方 1.5m 的局部路径。默认会沿 3m 做对齐，
-      # 弯道在 1m 外时就已经"看见并开始转"。
-      max_global_plan_lookahead_dist: 1.5
-      prune_plan: True
-      prune_distance: 1.0
-      stateful: True
-      critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
-      # Oscillation 负责惩罚「与上一周期方向相反」的轨迹。
-      # 默认 scale 1.0 几乎不起作用，遇到左右摆动提到 10 才压得住。
-      Oscillation.scale: 10.0
-      Oscillation.oscillation_reset_dist: 0.25
-      Oscillation.oscillation_reset_angle: 0.35
-      # 【关键】实测评价结果：
-      #   原地转  vx=0      BaseObstacle=0    total=26.50
-      #   前进    vx=0.367  BaseObstacle=186  total=26.58
-      # 前方 186 的障碍代价只让总分高 0.08 —— scale 归一化后约 0.002，
-      # 而 GoalAlign/GoalDist 每项贡献 12+。障碍权重必须提到同量级，
-      # DWB 才会真正“怕墙”。3.0 与 12~24 处于同一数量级。
-      BaseObstacle.scale: 3.0
-      # 【GoalAlign 和 GoalDist 必须分开调，别一起降】
-      #
-      # GoalAlign = 车头朝向「目标方向」的偏差。
-      #   大了 → 提前朝目标转，不走弯道（"距离转弯 1m 就转"）
-      #   → 保持小值 3
-      #
-      # GoalDist = 轨迹末端到「目标的距离」。
-      #   直道上车正好在路径上时，PathDist/PathAlign/BaseObstacle 全是 0，
-      #   624 条轨迹全部同分 6.75 → DWB 平局随便取一个 → 原地打转、左右摆动。
-      #   此时它是唯一能区分"前进多少"的项，必须给足权重。
-      #   → 提到 20
-      #
-      # forward_point_distance 保持 0.1：0.2 时 S 弯参考点会跨到下一段。
-      PathAlign.scale: 24.0
-      PathAlign.forward_point_distance: 0.1
-      # 【设为 0】GoalAlign 按「车头朝向目标方向」打分，目标永远在弯道之后，
-      # 所以它会持续把车头往弯道方向拽 —— 这就是"提前转弯 vs 直行"来回横跳的来源。
-      # 路径跟踪由 PathAlign + PathDist 负责，终点朝向由 RotateToGoal 负责，
-      # 中间过程不需要 GoalAlign。
-      GoalAlign.scale: 0.0
-      GoalAlign.forward_point_distance: 0.1
-      PathDist.scale: 32.0
-      GoalDist.scale: 20.0
-      RotateToGoal.scale: 32.0
-      RotateToGoal.slowing_factor: 5.0
-      RotateToGoal.lookahead_time: -1.0
 
 local_costmap:
   local_costmap:
