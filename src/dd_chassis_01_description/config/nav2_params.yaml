@@ -145,15 +145,17 @@ controller_server:
     FollowPath:
       plugin: "dwb_core::DWBLocalPlanner"
       debug_trajectory_details: True
-      min_vel_x: 0.0
+      # 允许小幅倒车：车头正对墙卡住时 DWB 能采样后退轨迹脱困，
+      # 而不是只会原地打转。0.0 时完全没有退路。
+      min_vel_x: -0.10
       min_vel_y: 0.0
-      # 底盘实际能到 0.5，但 S 弯里 0.5 来不及转，
-      # 取 0.4 兼顾通过性与反应时间。
-      max_vel_x: 0.4
+      # 底盘实际能到 0.5，但 S 弯里 0.5 来不及转。
+      # 0.35 × sim_time 1.2 = 0.42m 前瞻，短于实测的 0.5m 墙距。
+      max_vel_x: 0.35
       max_vel_y: 0.0
       max_vel_theta: 1.5
       min_speed_xy: 0.0
-      max_speed_xy: 0.4
+      max_speed_xy: 0.35
       min_speed_theta: 0.0
       # Add high threshold velocity for turtlebot 3 issue.
       # https://github.com/ROBOTIS-GIT/turtlebot3_simulations/issues/75
@@ -179,22 +181,31 @@ controller_server:
       short_circuit_trajectory_evaluation: True
       stateful: True
       critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
-      # 0.02 时贴墙几乎不扣分，S 弯会宁可蹭墙也不绕。
-      # 提到 0.08，让障碍成为真正的约束（但不要太大，否则又变保守）。
-      BaseObstacle.scale: 0.08
-      # 【S 弯调参的教训】
-      # forward_point_distance 是"沿路径向前多远取参考点"。
-      # 设 0.2 时，S 弯里这个点已经跨到下一段，车会提前对墙转向 → 卡住。
-      # 回到 0.1，也就是只看眼前这一小段。
+      # 【关键】实测评价结果：
+      #   原地转  vx=0      BaseObstacle=0    total=26.50
+      #   前进    vx=0.367  BaseObstacle=186  total=26.58
+      # 前方 186 的障碍代价只让总分高 0.08 —— scale 归一化后约 0.002，
+      # 而 GoalAlign/GoalDist 每项贡献 12+。障碍权重必须提到同量级，
+      # DWB 才会真正“怕墙”。3.0 与 12~24 处于同一数量级。
+      BaseObstacle.scale: 3.0
+      # 【为什么会"距离弯道 1m 就提前转弯"】
+      # 实测 /evaluation：
+      #   GoalAlign raw=43  GoalDist raw=42   ← 指向「目标」
+      #   PathAlign raw=2   PathDist  raw=0    ← 指向「路径」
+      # Goal 系列完全压过 Path 系列。长路径上目标永远在弯道之后，
+      # 于是车提前朝目标方向转，而不是跟着路径走。
       #
-      # PathDist(横向偏离路径) 提到 24，比之前的 16 更贴路径；
-      # PathAlign（航向对齐）20，配合 Goal 系列 12 保持灵活但不抄近路。
-      PathAlign.scale: 20.0
+      # Goal* 本来只该在接近终点时起作用。降到 3，
+      # 并把 Path* 提上去，让「沿路径」成为主导约束。
+      #
+      # forward_point_distance 保持 0.1：设 0.2 时 S 弯的参考点会
+      # 跨到下一段，同样导致提前转向。
+      PathAlign.scale: 24.0
       PathAlign.forward_point_distance: 0.1
-      GoalAlign.scale: 12.0
+      GoalAlign.scale: 3.0
       GoalAlign.forward_point_distance: 0.1
-      PathDist.scale: 24.0
-      GoalDist.scale: 12.0
+      PathDist.scale: 32.0
+      GoalDist.scale: 3.0
       RotateToGoal.scale: 32.0
       RotateToGoal.slowing_factor: 5.0
       RotateToGoal.lookahead_time: -1.0
@@ -215,13 +226,14 @@ local_costmap:
       plugins: ["voxel_layer", "inflation_layer"]
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        # 原值是 nav2 默认的 TurtleBot 配置 0.55（膨胀 11 格 @0.05 resolution），
-        # 对 0.42×0.36 的车来说等于要求 1.1m 宽通道，窄一点就绕。
-        # 改成 0.28 = 内切半径 0.18 + 0.10 余量，0.56m 通道可通过。
-        # cost_scaling_factor 3.0 -> 5.0，代价衰减更快，膨胀区边缘更"薄"，
-        # planner 更愿意贴边规划。
+        # 【调参历程】
+        #   0.55 (TurtleBot 默认) -> 太保守，窄处绕远
+        #   0.28                  -> 又太贴墙：车身半宽 0.21，只多 7cm，
+        #                            NavFn 把路径规划进膨胀区，车沿路径走就撞墙
+        #   0.35 = 半宽 0.21 + 0.14 余量。路径能离墙足够远，
+        #          0.70m 宽通道仍可通过。
         cost_scaling_factor: 5.0
-        inflation_radius: 0.28
+        inflation_radius: 0.35
       voxel_layer:
         plugin: "nav2_costmap_2d::VoxelLayer"
         enabled: True
@@ -278,13 +290,11 @@ global_costmap:
         map_subscribe_transient_local: True
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        # 原值是 nav2 默认的 TurtleBot 配置 0.55（膨胀 11 格 @0.05 resolution），
-        # 对 0.42×0.36 的车来说等于要求 1.1m 宽通道，窄一点就绕。
-        # 改成 0.28 = 内切半径 0.18 + 0.10 余量，0.56m 通道可通过。
-        # cost_scaling_factor 3.0 -> 5.0，代价衰减更快，膨胀区边缘更"薄"，
-        # planner 更愿意贴边规划。
+        # 与 local_costmap 保持一致（0.35）。
+        # 两者不一致时，全局按 global 的膨胀规划、局部按 local 的膨胀避障，
+        # 会出现“路径看着能走、DWB 却认为要撞”的矛盾。
         cost_scaling_factor: 5.0
-        inflation_radius: 0.28
+        inflation_radius: 0.35
       always_send_full_costmap: True
 
 map_server:
