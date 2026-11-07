@@ -147,12 +147,13 @@ controller_server:
       debug_trajectory_details: True
       min_vel_x: 0.0
       min_vel_y: 0.0
-      # 底盘实际能到 0.5 m/s（controllers.yaml），原来限制在 0.30
-      max_vel_x: 0.5
+      # 底盘实际能到 0.5，但 S 弯里 0.5 来不及转，
+      # 取 0.4 兼顾通过性与反应时间。
+      max_vel_x: 0.4
       max_vel_y: 0.0
       max_vel_theta: 1.5
       min_speed_xy: 0.0
-      max_speed_xy: 0.5
+      max_speed_xy: 0.4
       min_speed_theta: 0.0
       # Add high threshold velocity for turtlebot 3 issue.
       # https://github.com/ROBOTIS-GIT/turtlebot3_simulations/issues/75
@@ -178,14 +179,21 @@ controller_server:
       short_circuit_trajectory_evaluation: True
       stateful: True
       critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
-      BaseObstacle.scale: 0.02
-      # 原 32/24 会让车死贴路径，路径一旦靠墙就明显犹豫/降速。
-      # 降到 16/12 保留跟随性，但允许绕开局部障碍。
-      PathAlign.scale: 16.0
-      PathAlign.forward_point_distance: 0.2
+      # 0.02 时贴墙几乎不扣分，S 弯会宁可蹭墙也不绕。
+      # 提到 0.08，让障碍成为真正的约束（但不要太大，否则又变保守）。
+      BaseObstacle.scale: 0.08
+      # 【S 弯调参的教训】
+      # forward_point_distance 是"沿路径向前多远取参考点"。
+      # 设 0.2 时，S 弯里这个点已经跨到下一段，车会提前对墙转向 → 卡住。
+      # 回到 0.1，也就是只看眼前这一小段。
+      #
+      # PathDist(横向偏离路径) 提到 24，比之前的 16 更贴路径；
+      # PathAlign（航向对齐）20，配合 Goal 系列 12 保持灵活但不抄近路。
+      PathAlign.scale: 20.0
+      PathAlign.forward_point_distance: 0.1
       GoalAlign.scale: 12.0
-      GoalAlign.forward_point_distance: 0.2
-      PathDist.scale: 16.0
+      GoalAlign.forward_point_distance: 0.1
+      PathDist.scale: 24.0
       GoalDist.scale: 12.0
       RotateToGoal.scale: 32.0
       RotateToGoal.slowing_factor: 5.0
