@@ -145,9 +145,12 @@ controller_server:
     FollowPath:
       plugin: "dwb_core::DWBLocalPlanner"
       debug_trajectory_details: True
-      # 允许小幅倒车：车头正对墙卡住时 DWB 能采样后退轨迹脱困，
-      # 而不是只会原地打转。0.0 时完全没有退路。
-      min_vel_x: -0.10
+      # 【不在正常导航里允许倒车】
+      # 实测发现：允许 min_vel_x=-0.1 后，本该转弯的地方 DWB 会选倒车过去，
+      # 因为倒车能让轨迹末端更「朝向目标」，比转弯省事。
+      # 倒车应该交给行为树的 recovery（backup）——只在卡住/异常时触发，
+      # 而不是每 50ms 都在候选集里。
+      min_vel_x: 0.0
       min_vel_y: 0.0
       # 底盘实际能到 0.5，但 S 弯里 0.5 来不及转。
       # 0.35 × sim_time 1.2 = 0.42m 前瞻，短于实测的 0.5m 墙距。
@@ -181,8 +184,18 @@ controller_server:
       # 开 True 时一旦某条轨迹超过当前最优就跳过剩余 critic，
       # 分数不完整。本来分数就接近平局的情况下更容易选错。
       short_circuit_trajectory_evaluation: False
+      # 只截取前方 1.5m 的局部路径。默认会沿 3m 做对齐，
+      # 弯道在 1m 外时就已经"看见并开始转"。
+      max_global_plan_lookahead_dist: 1.5
+      prune_plan: True
+      prune_distance: 1.0
       stateful: True
       critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
+      # Oscillation 负责惩罚「与上一周期方向相反」的轨迹。
+      # 默认 scale 1.0 几乎不起作用，遇到左右摆动提到 10 才压得住。
+      Oscillation.scale: 10.0
+      Oscillation.oscillation_reset_dist: 0.25
+      Oscillation.oscillation_reset_angle: 0.35
       # 【关键】实测评价结果：
       #   原地转  vx=0      BaseObstacle=0    total=26.50
       #   前进    vx=0.367  BaseObstacle=186  total=26.58
@@ -205,7 +218,11 @@ controller_server:
       # forward_point_distance 保持 0.1：0.2 时 S 弯参考点会跨到下一段。
       PathAlign.scale: 24.0
       PathAlign.forward_point_distance: 0.1
-      GoalAlign.scale: 3.0
+      # 【设为 0】GoalAlign 按「车头朝向目标方向」打分，目标永远在弯道之后，
+      # 所以它会持续把车头往弯道方向拽 —— 这就是"提前转弯 vs 直行"来回横跳的来源。
+      # 路径跟踪由 PathAlign + PathDist 负责，终点朝向由 RotateToGoal 负责，
+      # 中间过程不需要 GoalAlign。
+      GoalAlign.scale: 0.0
       GoalAlign.forward_point_distance: 0.1
       PathDist.scale: 32.0
       GoalDist.scale: 20.0
@@ -216,8 +233,9 @@ controller_server:
 local_costmap:
   local_costmap:
     ros__parameters:
-      update_frequency: 5.0
-      publish_frequency: 2.0
+      # 局部代价图跟着激光转，频率给足
+      update_frequency: 10.0
+      publish_frequency: 5.0
       global_frame: odom
       robot_base_frame: base_link
       use_sim_time: True
@@ -265,8 +283,9 @@ local_costmap:
 global_costmap:
   global_costmap:
     ros__parameters:
-      update_frequency: 1.0
-      publish_frequency: 1.0
+      # 原来 1Hz，障碍层更新太慢，转弯时地图信息滞后
+      update_frequency: 5.0
+      publish_frequency: 2.0
       global_frame: map
       robot_base_frame: base_link
       use_sim_time: True
