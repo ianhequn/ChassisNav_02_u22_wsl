@@ -124,8 +124,10 @@ controller_server:
     # Progress checker parameters
     progress_checker:
       plugin: "nav2_controller::SimpleProgressChecker"
-      required_movement_radius: 0.5
-      movement_time_allowance: 10.0
+      # 10s 内必须走满 0.5m，对 0.5m/s 的底盘在窄处或转弯时太苛刻，
+      # 容易误判"卡住"而 abort。放宽到 0.3m / 15s。
+      required_movement_radius: 0.3
+      movement_time_allowance: 15.0
     # Goal checker parameters
     #precise_goal_checker:
     #  plugin: "nav2_controller::SimpleGoalChecker"
@@ -135,56 +137,83 @@ controller_server:
     general_goal_checker:
       stateful: True
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.25
-      yaw_goal_tolerance: 0.25
-    # DWB parameters
+      # 原 0.25/0.25 是 TurtleBot 默认，5cm 网格下太松：
+      # 差 25cm 就报"到了"，实际离目标还很远。
+      xy_goal_tolerance: 0.10
+      yaw_goal_tolerance: 0.15
+    # ==================================================================
+    # 【控制器选型】用 Regulated Pure Pursuit，不用 DWB
+    #
+    # 为什么放弃 DWB：
+    #   DWB 是"采样速度对 + 一组 critic 加权求和"的局部轨迹规划器，
+    #   路径跟踪只是其中的软约束。在 180° 回折弯上：
+    #     - 路径折线拐点处，PathAlign 的参考点方向会跳变
+    #     - forward_point_distance(0.1m) 在回折处可能跨到另一段路径
+    #     - PathDist/PathAlign 在直道上 raw score 恒为 0，
+    #       对"小幅提前转向"完全不敏感，只剩 Goal* 在拉
+    #   → 表现就是"提前转弯 vs 直行"反复横跳，调权重只是换一种抖法。
+    #
+    # RPP 是几何跟踪器：找 lookahead 点 → 算圆弧曲率 → 直接输出角速度。
+    # 没有权重可调，天然平滑；配合 use_rotate_to_heading，
+    # 航向差超过阈值时先原地转到路径方向再走，不会提前拐。
+    #
+    # 若需回退 DWB：git checkout config/nav2_params.yaml
+    # ==================================================================
     FollowPath:
-      plugin: "dwb_core::DWBLocalPlanner"
-      debug_trajectory_details: True
-      min_vel_x: 0.0
-      min_vel_y: 0.0
-      max_vel_x: 0.30
-      max_vel_y: 0.0
-      max_vel_theta: 1.5
-      min_speed_xy: 0.0
-      max_speed_xy: 0.30
-      min_speed_theta: 0.0
-      # Add high threshold velocity for turtlebot 3 issue.
-      # https://github.com/ROBOTIS-GIT/turtlebot3_simulations/issues/75
-      acc_lim_x: 1.0
-      acc_lim_y: 0.0
-      acc_lim_theta: 1.5
-      decel_lim_x: -1.0
-      decel_lim_y: 0.0
-      decel_lim_theta: -1.5
-      vx_samples: 20
-      vy_samples: 5
-      vtheta_samples: 20
-      sim_time: 1.7
-      linear_granularity: 0.05
-      angular_granularity: 0.025
+      plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
+
+      # ------------------------------------------------------------------
+      # 以下是 nav2 官方 RPP 的默认参数，只按本底盘能力改了两类：
+      #   1) 速度/加速度上限（官方 TurtleBot 值 0.5 / 3.2，本底盘 0.5 / 1.5）
+      #   2) desired_linear_vel 取 0.4，留出 S 弯余量
+      # 其余一律保持官方默认，不做"自创"调整。
+      #
+      # 已删除两个 Humble 版本不存在的参数：
+      #   max_linear_accel / max_linear_decel（官方 .so 里没有声明）
+      # ------------------------------------------------------------------
+
+      # 速度（官方 desired_linear_vel 默认 0.5；本车 0.5，S 弯留余量取 0.4）
+      desired_linear_vel: 0.4
+
+      # 前瞻（官方默认：0.6 / 0.3 / 0.9 / 1.5）
+      lookahead_dist: 0.6
+      min_lookahead_dist: 0.3
+      max_lookahead_dist: 0.9
+      lookahead_time: 1.5
+      # 官方默认 false：固定 0.6m 前瞻。
+      # 开启后高速时前瞻涨到 0.9m，会"看见更远的弯"，与"别提前转"的目标相反。
+      use_velocity_scaled_lookahead_dist: false
+
+      # 原地转向（官方默认：true / 45° / 1.8 rad/s）
+      # 角速度按底盘上限 1.5 取 1.5
+      use_rotate_to_heading: true
+      rotate_to_heading_min_angle: 0.785
+      rotate_to_heading_angular_vel: 1.5
+
+      # 弯道降速（官方默认，全部保持）
+      use_regulated_linear_velocity_scaling: true
+      regulated_linear_scaling_min_radius: 0.9
+      regulated_linear_scaling_min_speed: 0.25
+      use_cost_regulated_linear_velocity_scaling: false
+
+      # 碰撞检测（官方默认）
+      use_collision_detection: true
+      max_allowed_time_to_collision_up_to_carrot: 1.0
+
+      # 接近目标（官方默认 0.05 / 0.6）
+      min_approach_linear_velocity: 0.05
+      approach_velocity_scaling_dist: 0.6
+
+      # 角加速度：官方 3.2，本底盘 1.5
+      max_angular_accel: 1.5
       transform_tolerance: 0.2
-      xy_goal_tolerance: 0.25
-      trans_stopped_velocity: 0.25
-      short_circuit_trajectory_evaluation: True
-      stateful: True
-      critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
-      BaseObstacle.scale: 0.02
-      PathAlign.scale: 32.0
-      PathAlign.forward_point_distance: 0.1
-      GoalAlign.scale: 24.0
-      GoalAlign.forward_point_distance: 0.1
-      PathDist.scale: 32.0
-      GoalDist.scale: 24.0
-      RotateToGoal.scale: 32.0
-      RotateToGoal.slowing_factor: 5.0
-      RotateToGoal.lookahead_time: -1.0
 
 local_costmap:
   local_costmap:
     ros__parameters:
-      update_frequency: 5.0
-      publish_frequency: 2.0
+      # 局部代价图跟着激光转，频率给足
+      update_frequency: 10.0
+      publish_frequency: 5.0
       global_frame: odom
       robot_base_frame: base_link
       use_sim_time: True
@@ -196,8 +225,14 @@ local_costmap:
       plugins: ["voxel_layer", "inflation_layer"]
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 3.0
-        inflation_radius: 0.55
+        # 【调参历程】
+        #   0.55 (TurtleBot 默认) -> 太保守，窄处绕远
+        #   0.28                  -> 又太贴墙：车身半宽 0.21，只多 7cm，
+        #                            NavFn 把路径规划进膨胀区，车沿路径走就撞墙
+        #   0.35 = 半宽 0.21 + 0.14 余量。路径能离墙足够远，
+        #          0.70m 宽通道仍可通过。
+        cost_scaling_factor: 5.0
+        inflation_radius: 0.35
       voxel_layer:
         plugin: "nav2_costmap_2d::VoxelLayer"
         enabled: True
@@ -226,8 +261,9 @@ local_costmap:
 global_costmap:
   global_costmap:
     ros__parameters:
-      update_frequency: 1.0
-      publish_frequency: 1.0
+      # 原来 1Hz，障碍层更新太慢，转弯时地图信息滞后
+      update_frequency: 5.0
+      publish_frequency: 2.0
       global_frame: map
       robot_base_frame: base_link
       use_sim_time: True
@@ -254,8 +290,11 @@ global_costmap:
         map_subscribe_transient_local: True
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 3.0
-        inflation_radius: 0.55
+        # 与 local_costmap 保持一致（0.35）。
+        # 两者不一致时，全局按 global 的膨胀规划、局部按 local 的膨胀避障，
+        # 会出现“路径看着能走、DWB 却认为要撞”的矛盾。
+        cost_scaling_factor: 5.0
+        inflation_radius: 0.35
       always_send_full_costmap: True
 
 map_server:
@@ -280,7 +319,8 @@ planner_server:
     planner_plugins: ["GridBased"]
     GridBased:
       plugin: "nav2_navfn_planner/NavfnPlanner"
-      tolerance: 0.5
+      # 0.5 太松：目标点在障碍里也能"规划成功"到 0.5m 外
+      tolerance: 0.2
       use_astar: false
       allow_unknown: true
 
@@ -315,9 +355,10 @@ behavior_server:
     transform_tolerance: 0.1
     use_sim_time: true
     simulate_ahead_time: 2.0
-    max_rotational_vel: 1.0
-    min_rotational_vel: 0.4
-    rotational_acc_lim: 3.2
+    # 与底盘对齐（controllers.yaml 的 1.5 rad/s、1.5 rad/s^2）
+    max_rotational_vel: 1.5
+    min_rotational_vel: 0.3
+    rotational_acc_lim: 1.5
 
 robot_state_publisher:
   ros__parameters:
