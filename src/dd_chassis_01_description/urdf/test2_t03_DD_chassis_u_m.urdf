@@ -145,12 +145,19 @@ Stephen Brawner (brawner@gmail.com)
       </material>
     </visual>
     <collision>
+      <!-- 用 cylinder 而不是 mesh。
+           Fortress 默认物理引擎是 DART，mesh-mesh 接触的摩擦和滚动
+           表现不符合直觉，改 mu 几乎观察不到变化。
+           尺寸取自 STL 实测：X 厚 0.027、Y/Z 直径 0.065 → 半径 0.0325。
+           mesh 的 X 区间是 [0, 0.027]，中心在 0.0135，所以要偏 0.0135。
+           rpy 0 1.5708 0 把 cylinder 默认的 Z 轴转到轮子的 X 轴。 -->
       <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
+        xyz="0.0135 0 0"
+        rpy="0 1.5708 0" />
       <geometry>
-        <mesh
-          filename="package://dd_chassis_01_description/meshes/wheel_l_link.STL" />
+        <!-- URDF 的 cylinder 用属性写法（不是 SDF 的子元素写法，
+             写成子元素会被 sdformat 静默丢弃，collision 直接消失） -->
+        <cylinder radius="0.0325" length="0.027" />
       </geometry>
     </collision>
   </link>
@@ -198,12 +205,14 @@ Stephen Brawner (brawner@gmail.com)
       </material>
     </visual>
     <collision>
+      <!-- 同 wheel_l_link：用 cylinder 代替 mesh，便于稳定地调试摩擦。 -->
       <origin
-        xyz="0 0 0"
-        rpy="0 0 0" />
+        xyz="0.0135 0 0"
+        rpy="0 1.5708 0" />
       <geometry>
-        <mesh
-          filename="package://dd_chassis_01_description/meshes/wheel_r_link.STL" />
+        <!-- URDF 的 cylinder 用属性写法（不是 SDF 的子元素写法，
+             写成子元素会被 sdformat 静默丢弃，collision 直接消失） -->
+        <cylinder radius="0.0325" length="0.027" />
       </geometry>
     </collision>
   </link>
@@ -337,14 +346,14 @@ Stephen Brawner (brawner@gmail.com)
   </gazebo>
 
   <gazebo reference="ball_wheel_f_link">
-    <mu1>0.01</mu1>
-    <mu2>0.01</mu2>
+    <mu1>0.001</mu1>
+    <mu2>0.001</mu2>
     <kp>10000</kp>
     <kd>150</kd>
   </gazebo>
   <gazebo reference="ball_wheel_b_link">
-    <mu1>0.01</mu1>
-    <mu2>0.01</mu2>
+    <mu1>0.001</mu1>
+    <mu2>0.001</mu2>
     <kp>10000</kp>
     <kd>150</kd>
   </gazebo>
@@ -354,7 +363,7 @@ Stephen Brawner (brawner@gmail.com)
          方向上来回跳变，实测表现为"左转时两轮同向、车身不转"。
          这里与球轮取同一个量级。 -->
     <mu1>1.0</mu1>
-    <mu2>1.0</mu2>
+    <mu2>0.5</mu2>
     <kp>10000</kp>
     <kd>150</kd>
   </gazebo>
@@ -364,7 +373,7 @@ Stephen Brawner (brawner@gmail.com)
          方向上来回跳变，实测表现为"左转时两轮同向、车身不转"。
          这里与球轮取同一个量级。 -->
     <mu1>1.0</mu1>
-    <mu2>1.0</mu2>
+    <mu2>0.5</mu2>
     <kp>10000</kp>
     <kd>150</kd>
   </gazebo>

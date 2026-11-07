@@ -33,34 +33,16 @@ def generate_launch_description():
             default_value=os.path.join(pkg, 'config', 'slam_lifelong.yaml')),
 
         
-        # joint_state_broadcaster：先把 /joint_states 发出来
-        Node(
-            package='controller_manager', executable='spawner',
-            arguments=['joint_state_broadcaster'],
-            output='screen',
-        ),
-
-        # diff_drive_controller：订阅 cmd_vel_unstamped，发布 odom
-        Node(
-            package='controller_manager', executable='spawner',
-            arguments=['diff_drive_controller'],
-            output='screen',
-        ),
-
-        # /cmd_vel -> /diff_drive_controller/cmd_vel_unstamped
+        # 注意：joint_state_broadcaster / diff_drive_controller 的 spawner
+        # 以及 /cmd_vel -> /cmd_vel_unstamped 的 relay，都已经移到
+        # gazebo.launch.py 里。
         #
-        # Humble 的 velocity_smoother 链路是：
-        #   controller_server -> /cmd_vel_nav -> velocity_smoother -> /cmd_vel
-        # 注意输出是 /cmd_vel（不是 /cmd_vel_smoothed，那是新版 nav2 的叫法）。
-        # 遥控 teleop 默认也发 /cmd_vel，所以这里接 /cmd_vel 可以同时
-        # 覆盖导航和遥控两条来源。
-        Node(
-            package='topic_tools', executable='relay',
-            name='cmd_vel_relay',
-            arguments=['/cmd_vel',
-                       '/diff_drive_controller/cmd_vel_unstamped'],
-            output='screen',
-        ),
+        # 原因：底盘控制器的生命周期应该跟 Gazebo 绑定，而不是跟导航栈绑定。
+        # 放这边会导致“只启动 gazebo.launch.py 时遥控无效”；
+        # 而且两个 launch 都起时会重复 spawn、重复 relay。
+        # 现在职责划分：
+        #   gazebo.launch.py   -> Gazebo + 桥 + 控制器 + relay（底盘可控）
+        #   slam_nav2.launch.py -> EKF + 雷达过滤 + SLAM + Nav2 + RViz
 
         # 雷达过滤：屏蔽车体自身
         # 读 /scan_raw（Gazebo 桥进来的原始数据），写 /scan（slam 和 costmap 用）

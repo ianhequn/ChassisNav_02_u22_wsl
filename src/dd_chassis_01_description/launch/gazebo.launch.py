@@ -69,4 +69,35 @@ def generate_launch_description():
              executable='robot_state_publisher',
              parameters=[{'robot_description': robot_desc}],
              output='screen'),
+
+        # ==================================================================
+        # controller spawner
+        #
+        # 这两个原来放在 slam_nav2.launch.py 里，导致只启动本 launch 时
+        # diff_drive_controller 根本没被 spawn，/cmd_vel_unstamped 无人订阅，
+        # 表现为“遥控完全没反应”。放在这里才能保证 Gazebo 单独跑时底盘可控。
+        #
+        # spawner 内部会等 controller_manager 的 service 就绪，所以不需要
+        # 额外加延时。slam_nav2.launch.py 里已移除这两个节点，避免重复 spawn。
+        # ==================================================================
+        Node(package='controller_manager', executable='spawner',
+             arguments=['joint_state_broadcaster'],
+             output='screen'),
+
+        Node(package='controller_manager', executable='spawner',
+             arguments=['diff_drive_controller'],
+             output='screen'),
+
+        # /cmd_vel -> /diff_drive_controller/cmd_vel_unstamped
+        #
+        # 跟 slam_nav2 里那条 relay 同一个作用。放这里是为了 Gazebo 单独
+        # 启动时遥控也能直接用（teleop 默认发 /cmd_vel）。
+        # 两条 relay 不会冲突：slam_nav2 启动时它会先检测到已有 relay
+        # 在转发，重复发布同样的消息也只是冗余，不会造成速度翻倍。
+        # （若只想跑一套，保证只有一个 launch 在起 relay 即可。）
+        Node(package='topic_tools', executable='relay',
+             name='cmd_vel_relay',
+             arguments=['/cmd_vel',
+                        '/diff_drive_controller/cmd_vel_unstamped'],
+             output='screen'),
     ])
