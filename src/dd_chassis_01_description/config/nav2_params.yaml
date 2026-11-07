@@ -178,7 +178,9 @@ controller_server:
       xy_goal_tolerance: 0.25
       # 0.25 m/s 才认为"停住"太粗糙，会拖慢到点判定
       trans_stopped_velocity: 0.1
-      short_circuit_trajectory_evaluation: True
+      # 开 True 时一旦某条轨迹超过当前最优就跳过剩余 critic，
+      # 分数不完整。本来分数就接近平局的情况下更容易选错。
+      short_circuit_trajectory_evaluation: False
       stateful: True
       critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
       # 【关键】实测评价结果：
@@ -188,24 +190,25 @@ controller_server:
       # 而 GoalAlign/GoalDist 每项贡献 12+。障碍权重必须提到同量级，
       # DWB 才会真正“怕墙”。3.0 与 12~24 处于同一数量级。
       BaseObstacle.scale: 3.0
-      # 【为什么会"距离弯道 1m 就提前转弯"】
-      # 实测 /evaluation：
-      #   GoalAlign raw=43  GoalDist raw=42   ← 指向「目标」
-      #   PathAlign raw=2   PathDist  raw=0    ← 指向「路径」
-      # Goal 系列完全压过 Path 系列。长路径上目标永远在弯道之后，
-      # 于是车提前朝目标方向转，而不是跟着路径走。
+      # 【GoalAlign 和 GoalDist 必须分开调，别一起降】
       #
-      # Goal* 本来只该在接近终点时起作用。降到 3，
-      # 并把 Path* 提上去，让「沿路径」成为主导约束。
+      # GoalAlign = 车头朝向「目标方向」的偏差。
+      #   大了 → 提前朝目标转，不走弯道（"距离转弯 1m 就转"）
+      #   → 保持小值 3
       #
-      # forward_point_distance 保持 0.1：设 0.2 时 S 弯的参考点会
-      # 跨到下一段，同样导致提前转向。
+      # GoalDist = 轨迹末端到「目标的距离」。
+      #   直道上车正好在路径上时，PathDist/PathAlign/BaseObstacle 全是 0，
+      #   624 条轨迹全部同分 6.75 → DWB 平局随便取一个 → 原地打转、左右摆动。
+      #   此时它是唯一能区分"前进多少"的项，必须给足权重。
+      #   → 提到 20
+      #
+      # forward_point_distance 保持 0.1：0.2 时 S 弯参考点会跨到下一段。
       PathAlign.scale: 24.0
       PathAlign.forward_point_distance: 0.1
       GoalAlign.scale: 3.0
       GoalAlign.forward_point_distance: 0.1
       PathDist.scale: 32.0
-      GoalDist.scale: 3.0
+      GoalDist.scale: 20.0
       RotateToGoal.scale: 32.0
       RotateToGoal.slowing_factor: 5.0
       RotateToGoal.lookahead_time: -1.0
