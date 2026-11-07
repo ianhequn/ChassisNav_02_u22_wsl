@@ -124,8 +124,10 @@ controller_server:
     # Progress checker parameters
     progress_checker:
       plugin: "nav2_controller::SimpleProgressChecker"
-      required_movement_radius: 0.5
-      movement_time_allowance: 10.0
+      # 10s 内必须走满 0.5m，对 0.5m/s 的底盘在窄处或转弯时太苛刻，
+      # 容易误判"卡住"而 abort。放宽到 0.3m / 15s。
+      required_movement_radius: 0.3
+      movement_time_allowance: 15.0
     # Goal checker parameters
     #precise_goal_checker:
     #  plugin: "nav2_controller::SimpleGoalChecker"
@@ -135,19 +137,22 @@ controller_server:
     general_goal_checker:
       stateful: True
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.25
-      yaw_goal_tolerance: 0.25
+      # 原 0.25/0.25 是 TurtleBot 默认，5cm 网格下太松：
+      # 差 25cm 就报"到了"，实际离目标还很远。
+      xy_goal_tolerance: 0.10
+      yaw_goal_tolerance: 0.15
     # DWB parameters
     FollowPath:
       plugin: "dwb_core::DWBLocalPlanner"
       debug_trajectory_details: True
       min_vel_x: 0.0
       min_vel_y: 0.0
-      max_vel_x: 0.30
+      # 底盘实际能到 0.5 m/s（controllers.yaml），原来限制在 0.30
+      max_vel_x: 0.5
       max_vel_y: 0.0
       max_vel_theta: 1.5
       min_speed_xy: 0.0
-      max_speed_xy: 0.30
+      max_speed_xy: 0.5
       min_speed_theta: 0.0
       # Add high threshold velocity for turtlebot 3 issue.
       # https://github.com/ROBOTIS-GIT/turtlebot3_simulations/issues/75
@@ -157,25 +162,31 @@ controller_server:
       decel_lim_x: -1.0
       decel_lim_y: 0.0
       decel_lim_theta: -1.5
-      vx_samples: 20
+      # 采样数从 20 提到 25，速度离散更细，走起来更顺
+      vx_samples: 25
       vy_samples: 5
-      vtheta_samples: 20
-      sim_time: 1.7
+      vtheta_samples: 25
+      # 1.7s 的预测时域太长：1.7s 内的代价全算进来，
+      # 窄处容易提前判死而减速/绕路。1.2s 更果断。
+      sim_time: 1.2
       linear_granularity: 0.05
       angular_granularity: 0.025
       transform_tolerance: 0.2
       xy_goal_tolerance: 0.25
-      trans_stopped_velocity: 0.25
+      # 0.25 m/s 才认为"停住"太粗糙，会拖慢到点判定
+      trans_stopped_velocity: 0.1
       short_circuit_trajectory_evaluation: True
       stateful: True
       critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
       BaseObstacle.scale: 0.02
-      PathAlign.scale: 32.0
-      PathAlign.forward_point_distance: 0.1
-      GoalAlign.scale: 24.0
-      GoalAlign.forward_point_distance: 0.1
-      PathDist.scale: 32.0
-      GoalDist.scale: 24.0
+      # 原 32/24 会让车死贴路径，路径一旦靠墙就明显犹豫/降速。
+      # 降到 16/12 保留跟随性，但允许绕开局部障碍。
+      PathAlign.scale: 16.0
+      PathAlign.forward_point_distance: 0.2
+      GoalAlign.scale: 12.0
+      GoalAlign.forward_point_distance: 0.2
+      PathDist.scale: 16.0
+      GoalDist.scale: 12.0
       RotateToGoal.scale: 32.0
       RotateToGoal.slowing_factor: 5.0
       RotateToGoal.lookahead_time: -1.0
@@ -196,8 +207,13 @@ local_costmap:
       plugins: ["voxel_layer", "inflation_layer"]
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 3.0
-        inflation_radius: 0.55
+        # 原值是 nav2 默认的 TurtleBot 配置 0.55（膨胀 11 格 @0.05 resolution），
+        # 对 0.42×0.36 的车来说等于要求 1.1m 宽通道，窄一点就绕。
+        # 改成 0.28 = 内切半径 0.18 + 0.10 余量，0.56m 通道可通过。
+        # cost_scaling_factor 3.0 -> 5.0，代价衰减更快，膨胀区边缘更"薄"，
+        # planner 更愿意贴边规划。
+        cost_scaling_factor: 5.0
+        inflation_radius: 0.28
       voxel_layer:
         plugin: "nav2_costmap_2d::VoxelLayer"
         enabled: True
@@ -254,8 +270,13 @@ global_costmap:
         map_subscribe_transient_local: True
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 3.0
-        inflation_radius: 0.55
+        # 原值是 nav2 默认的 TurtleBot 配置 0.55（膨胀 11 格 @0.05 resolution），
+        # 对 0.42×0.36 的车来说等于要求 1.1m 宽通道，窄一点就绕。
+        # 改成 0.28 = 内切半径 0.18 + 0.10 余量，0.56m 通道可通过。
+        # cost_scaling_factor 3.0 -> 5.0，代价衰减更快，膨胀区边缘更"薄"，
+        # planner 更愿意贴边规划。
+        cost_scaling_factor: 5.0
+        inflation_radius: 0.28
       always_send_full_costmap: True
 
 map_server:
@@ -280,7 +301,8 @@ planner_server:
     planner_plugins: ["GridBased"]
     GridBased:
       plugin: "nav2_navfn_planner/NavfnPlanner"
-      tolerance: 0.5
+      # 0.5 太松：目标点在障碍里也能"规划成功"到 0.5m 外
+      tolerance: 0.2
       use_astar: false
       allow_unknown: true
 
@@ -315,9 +337,10 @@ behavior_server:
     transform_tolerance: 0.1
     use_sim_time: true
     simulate_ahead_time: 2.0
-    max_rotational_vel: 1.0
-    min_rotational_vel: 0.4
-    rotational_acc_lim: 3.2
+    # 与底盘对齐（controllers.yaml 的 1.5 rad/s、1.5 rad/s^2）
+    max_rotational_vel: 1.5
+    min_rotational_vel: 0.3
+    rotational_acc_lim: 1.5
 
 robot_state_publisher:
   ros__parameters:
